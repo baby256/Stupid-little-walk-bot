@@ -11,6 +11,7 @@ from telebot.types import Message
 bot = telebot.TeleBot(os.environ["BOT_TOKEN"])
 
 user_data = {}
+user_location = {}
 
 
 class DialogState(IntEnum):
@@ -34,10 +35,11 @@ def handle_message(message: Message):
             message.from_user.id,
             "Привет! Пришли мне свою геолокацию и я придумаю куда тебе прогуляться.",
         )
+        return
 
     if get_dialog_state(message) == DialogState.initial:
         handle_initial_state(message)
-    if get_dialog_state(message) == DialogState.awaiting_radius:
+    elif get_dialog_state(message) == DialogState.awaiting_radius:
         handle_awaiting_radius_state(message)
 
 
@@ -49,8 +51,9 @@ def handle_awaiting_radius_state(message: Message):
     elif int(message.text) == 0:
         bot.send_message(message.from_user.id, "Радиус должен быть больше нуля.")
     else:
+        location = user_location[message.from_user.id]
         lat, lon = make_random_point(
-            message.location.latitude, message.location.longitude, int(message.text)
+            location.latitude, location.longitude, int(message.text)
         )
         bot.send_location(message.from_user.id, lat, lon)
         user_data[message.from_user.id] = DialogState.initial
@@ -59,6 +62,7 @@ def handle_awaiting_radius_state(message: Message):
 def handle_initial_state(message: Message):
     if message.location:
         bot.send_message(message.from_user.id, "Укажи желаемый радиус (в метрах)")
+        user_location[message.from_user.id] = message.location
         user_data[message.from_user.id] = DialogState.awaiting_radius
     else:
         bot.send_message(
