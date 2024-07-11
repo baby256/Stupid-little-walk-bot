@@ -1,7 +1,10 @@
 import os
+import sys
 
 import numpy
+import requests.exceptions
 import telebot
+from loguru import logger
 from telebot.types import Message
 
 bot = telebot.TeleBot(os.environ["BOT_TOKEN"])
@@ -9,6 +12,9 @@ bot = telebot.TeleBot(os.environ["BOT_TOKEN"])
 
 @bot.message_handler(content_types=["text", "location"])
 def get_text_messages(message: Message):
+    logger.info(
+        f"got message from user {message.from_user.id} {message.from_user.username}"
+    )
     if message.text == "/start":
         bot.send_message(
             message.from_user.id,
@@ -45,4 +51,10 @@ def make_random_point(lat, long, radius) -> tuple[float, float]:
     return latitude, longitude
 
 
-bot.polling(none_stop=True, interval=0)
+if __name__ == "__main__":
+    logger.add(sys.stderr, format="{time} {level} {message}", level="INFO")
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0)
+        except requests.exceptions.ReadTimeout as e:
+            logger.exception("read timeout. restarting")
