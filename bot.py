@@ -1,5 +1,6 @@
 import os
 import sys
+from enum import IntEnum
 
 import numpy
 import requests.exceptions
@@ -9,9 +10,22 @@ from telebot.types import Message
 
 bot = telebot.TeleBot(os.environ["BOT_TOKEN"])
 
+user_data = {}
+
+
+class DialogState(IntEnum):
+    initial = 0
+    awaiting_radius = 1
+
+
+def get_dialog_state(message: Message) -> DialogState:
+    if message.from_user.id not in user_data:
+        return DialogState.initial
+    return user_data[message.from_user.id]
+
 
 @bot.message_handler(content_types=["text", "location"])
-def get_text_messages(message: Message):
+def handle_message(message: Message):
     logger.info(
         f"got message from user {message.from_user.id} {message.from_user.username}"
     )
@@ -20,11 +34,30 @@ def get_text_messages(message: Message):
             message.from_user.id,
             "Привет! Пришли мне свою геолокацию и я придумаю куда тебе прогуляться.",
         )
-    elif message.location:
+
+    if get_dialog_state(message) == DialogState.initial:
+        handle_initial_state(message)
+
+
+def handle_awaiting_radius_state(message: Message):
+    if int(message.text) >= 6371000:
+        bot.send_message(
+            message.from_user.id, "Это слишком большой радиус, попробуй еще раз."
+        )
+    elif int(message.text) == 0:
+        bot.send_message(message.from_user.id, "Радиус должен быть больше нуля.")
+    else:
         lat, lon = make_random_point(
-            message.location.latitude, message.location.longitude, 2000
+            message.location.latitude, message.location.longitude, int(message.text)
         )
         bot.send_location(message.from_user.id, lat, lon)
+        user_data[message.from_user.id] = DialogState.initial
+
+
+def handle_initial_state(message: Message):
+    if message.location:
+        bot.send_message(message.from_user.id, "Укажи желаемый радиус (в метрах)")
+        user_data[message.from_user.id] = DialogState.awaiting_radius
     else:
         bot.send_message(
             message.from_user.id,
