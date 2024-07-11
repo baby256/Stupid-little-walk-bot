@@ -37,6 +37,8 @@ def handle_message(message: Message):
 
     if get_dialog_state(message) == DialogState.initial:
         handle_initial_state(message)
+    if get_dialog_state(message) == DialogState.awaiting_radius:
+        handle_awaiting_radius_state(message)
 
 
 def handle_awaiting_radius_state(message: Message):
